@@ -1,0 +1,112 @@
+version: '3'
+services:
+  zookeeper:
+    image: zookeeper:3.4.9
+    hostname: zookeeper
+    networks:
+      - car-store-network
+    ports:
+      - "2181:2181"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_PORT: 2181
+      ZOO_SERVERS: server.1=zookeeper:2888:3888
+    volumes:
+      - zookeeper_data:/data
+      - zookeeper_datalog:/datalog
+  kafka1:
+    image: confluentinc/cp-kafka:5.3.0
+    hostname: kafka1
+    networks:
+      - car-store-network
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka1:19092,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+    depends_on:
+      - zookeeper
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    networks:
+      - car-store-network
+    restart: "no"
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "kafka1:19092"
+    depends_on:
+      - kafka1
+  postgresql:
+    image: postgresql:car-store
+    networks:
+      - car-store-network
+    build: 
+      context: ./postgresql/
+      args:
+        PGID: 1000
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1234
+      
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+  api:
+    container_name: car-api
+    networks:
+      - car-store-network
+    build:
+      context: ./api/
+    ports:
+      - "8085:8085"
+    restart: always
+    depends_on:
+      - zookeeper
+      - kafka1
+      - kafdrop
+      - postgresql
+    volumes:
+      - ~/.m2:/root/.m2
+  car:
+    container_name: car
+    networks:
+      - car-store-network
+    build:
+      context: ./car/
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      - zookeeper
+      - kafka1
+      - kafdrop
+      - postgresql
+    volumes:
+      - ~/.m2:/root/.m2
+volumes:
+  zookeeper_data:
+  zookeeper_datalog:
+  kafka1_data:
+  postgresql_data:
+    driver: local
+networks:
+  car-store-network:
+    driver: bridge
+
+
+
+
+#Sobre o Zookeeper: https://dattell.com/data-architecture-blog/what-is-zookeeper-how-does-it-support-kafka/
+#Detalhes das variáveis de ambiente:
+#Zookeper: https://hub.docker.com/_/zookeeper
+#Kafka: https://docs.confluent.io/platform/current/kafka/multi-node.html
+#Kafdrop: https://github.com/obsidiandynamics/kafdrop

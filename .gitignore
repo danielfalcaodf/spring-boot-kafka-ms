@@ -40,3 +40,6 @@ nb-configuration.xml
 .env
 
 .history
+docker-data/kafka1
+docker-data/zookeeper
+docker-data/postgresql
