@@ -92,6 +92,22 @@ services:
       - postgresql
     volumes:
       - ~/.m2:/root/.m2
+  data:
+    container_name: car-data
+    networks:
+      - car-store-network
+    build:
+      context: ./data/
+    ports:
+      - "8086:8086"
+    restart: always
+    depends_on:
+      - zookeeper
+      - kafka1
+      - kafdrop
+      - postgresql
+    volumes:
+      - ~/.m2:/root/.m2
 volumes:
   zookeeper_data:
   zookeeper_datalog:

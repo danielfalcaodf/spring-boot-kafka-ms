@@ -1,1 +1,2 @@
 CREATE DATABASE car_post_storage;
+CREATE DATABASE car_post_analytics;
